@@ -1,0 +1,47 @@
+from mininet.topo import Topo
+from mininet.net import Mininet
+from mininet.node import RemoteController, OVSKernelSwitch
+from mininet.cli import CLI
+from mininet.log import setLogLevel
+from mininet.link import TCLink
+
+class JobQueueTopo(Topo):
+    def build(self):
+        # Switches
+        s1 = self.addSwitch('s1', protocols='OpenFlow13')
+        s2 = self.addSwitch('s2', protocols='OpenFlow13')
+        s3 = self.addSwitch('s3', protocols='OpenFlow13')
+        s4 = self.addSwitch('s4', protocols='OpenFlow13')
+
+        # Hosts
+        h1 = self.addHost('h1', ip='10.0.0.1/24', mac='00:00:00:00:00:01') # Client 1
+        h2 = self.addHost('h2', ip='10.0.0.2/24', mac='00:00:00:00:00:02') # Client 2
+        h3 = self.addHost('h3', ip='10.0.0.3/24', mac='00:00:00:00:00:03') # Master Broker
+        h4 = self.addHost('h4', ip='10.0.0.4/24', mac='00:00:00:00:00:04') # Worker 1
+        h5 = self.addHost('h5', ip='10.0.0.5/24', mac='00:00:00:00:00:05') # Worker 2
+
+        # Host Links
+        self.addLink(h1, s1)
+        self.addLink(h2, s1)
+        self.addLink(h3, s4)
+        self.addLink(h4, s4)
+        self.addLink(h5, s4)
+
+        # Redundant Switch Links (with bandwidth limits for performance testing)
+        self.addLink(s1, s2, cls=TCLink, bw=10, delay='5ms')  # Primary Path
+        self.addLink(s2, s4, cls=TCLink, bw=10, delay='5ms')
+        self.addLink(s1, s3, cls=TCLink, bw=10, delay='15ms') # Backup Path
+        self.addLink(s3, s4, cls=TCLink, bw=10, delay='15ms')
+
+def run():
+    topo = JobQueueTopo()
+    net = Mininet(topo=topo, controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633),
+                  switch=OVSKernelSwitch, autoSetMacs=True)
+    net.start()
+    print("*** Network started. Use 'xterm h1 h2 h3 h4 h5' to open terminals.")
+    CLI(net)
+    net.stop()
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    run()
